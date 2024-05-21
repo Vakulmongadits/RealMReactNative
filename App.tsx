@@ -1,118 +1,113 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+import React, { useEffect, useState } from "react";
+import { SafeAreaView, View, FlatList, Dimensions, Text, Image, StyleSheet } from "react-native";
+const { width } = Dimensions.get('window');
+const Realm = require('realm');
 
-import React from 'react';
-import type {PropsWithChildren} from 'react';
-import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from 'react-native';
+const PRODUCTS_SCHEMA = 'products';
+const EventsSchema = {
+  name: PRODUCTS_SCHEMA,
+  primaryKey: 'id',
+  properties: {
+    id: 'int',
+    title: 'string',
+    description: 'string',
+    thumbnail: 'string',
+  }
+};
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+const databaseOptions = {
+  path: 'realmT4.realm',
+  schema: [EventsSchema],
+  schemaVersion: 0
+};
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
+const App = () => {
 
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+  const [data, setData] = useState([])
+
+  useEffect(() => {
+    getData()
+  }, [])
+
+  const getData = () => {
+    fetch('https://dummyjson.com/products')
+      .then(res => res.json())
+      .then(response => {
+        console.log(response)
+        saveDataInDB(response.products)
+      })
+  }
+
+  const saveDataInDB = (data: any) => {
+    Realm.open(databaseOptions).then((realm: any) => {
+      realm.write(() => {
+        for (let elem of data) {
+          console.log('saveDataInDB -> ', elem)
+          let data = {
+            id: elem.id,
+            title: elem.title,
+            description: elem.description,
+            thumbnail: elem.thumbnail,
+          }
+          realm.create(PRODUCTS_SCHEMA, data);
+        }
+
+      });
+    })
+
+    getDataFromDB()
+  }
+
+  const getDataFromDB = () => {
+    Realm.open(databaseOptions).then(realm => {
+      let dbData = realm.objects(PRODUCTS_SCHEMA);
+      console.log('dbData dbData --> ', dbData)
+      setData(dbData)
+    });
+  }
+
   return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
+    <SafeAreaView style={styles.container}>
+      <FlatList data={data}
+        extraData={data}
+        keyExtractor={(item, index) => `${index}`}
+        renderItem={({ item, index }) => {
+          return <ProductsItem item={item} index={index} />
+        }} />
+    </SafeAreaView>
+  )
 }
 
-function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+export default App;
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
-
+const ProductsItem = ({ item, index }: any) => {
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
+    <View style={styles.itemContainerProduct}>
+      <Image source={{ uri: item.thumbnail }} style={styles.imageProductItem} />
+      <Text style={styles.textProductItemTitle}>{item.title}</Text>
+    </View>
+  )
 }
 
 const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
+  container: {
+    flex: 1,
+    backgroundColor: 'white'
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
+  itemContainerProduct: {
+    height: 60,
+    width: width - 36,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center'
   },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
+  imageProductItem: {
+    height: 50,
+    width: 50,
   },
-  highlight: {
-    fontWeight: '700',
-  },
-});
-
-export default App;
+  textProductItemTitle: {
+    flex: 1,
+    fontSize: 16,
+    marginStart: 10
+  }
+})
